@@ -1,0 +1,1401 @@
+disp('------------------------------------------------------------------------');
+disp('Program Simulasi Numerik Penyebaran COVID-19 Degan Tiga Varian pada Jaringan Interaksi Manusia');
+disp('------------------------------------------------------------------------');
+
+%pkg load statistics
+
+%clear all;
+%clc;
+Nsim=100; %input('Banyak simulasi = '); %banyak simulasi
+N=10000; %input('Jumlah orang dalam populasi = '); %jumlah total individu dalam populasi
+LT=180; %selama 6 bulan %input('Lama pengamatan (dalam hari) = '); %lamanya waktu pengamatan biasanya untuk satu tahun
+dr=input('Derajat rata-rata jaringan (rata-rata jumlah koneksi per individu) = '); %konektifitas atau banyaknya individu berinterakasi dengan individu lain yang berbeda
+bm=input('Bobot rata-rata maksimum (intensitas maksimum rata antar individu)= '); %intensitas/frekuensi interaksi antar individu
+No=input('Jumlah orang yang terinfeksi alami di awal = '); %jumlah terinfeksi pada saat awal pengamatan yang dipilih secara acak dalam populasi pada saat bersamaan
+Nov=input('Jumlah orang yang terinfeksi oleh varian 1 = '); %jumlah individu yang terinfeksi oleh varian 1 setelah jeda waktu varian 1
+Now=input('Jumlah orang yang terinfeksi oleh varian 2 = ');
+dtv=30; %input('Jeda waktu munculnya varian 1 (dalam hari) sejak kemunculan infeksi awal = ');
+dtw=30; %input('Jeda waktu munculnya varian 2 sejak kemunculan varian 1 = ');
+dpo=21; %input('Lama infeksi alami penyakit(dalam hari) = '); %lamanya masa infeksi alami penyakit
+dpv=21; %input('Lama infeksi varian 1 (dalam hari) = '); %lamanya masa infeksi oleh varian 1
+dpw=21; %input('Lama infeksi varian 2 (dalam hari) = ');
+pbo=0.05; %input('Peluang infeksi alami = '); %peluang infeksi alami penyakit
+pbv=0.05; %input('Peluang infeksi varian 1 = '); %peluang infeksi varian 1
+pbw=0.05; %input('Peluang infeksi varian 2 = ');
+inko=5; %input('Lama masa inkubasi virus alami (dalam hari) = '); %masa inkubasi infeksi 1
+inkv=3; %input('Lama masa inkubasi virus 2 (dalam hari) = '); %masa inkubasi infeksi 2
+inkw=2; %input('Lama masa inkubasi virus 3 (dalam hari) = '); %masa inkubasi infeksi 
+mio=0.001; %input('Peluang kematian alami penyakit = ');
+miv=0.001; %input('Peluang kematian varian 1 = ');
+miw=0.001; %input('Peluang kematian varian 2 = ');
+NV=(1:1:N); %banyak verteks (individu)
+xt=(0:1:LT-1); %sumbu x (waktu)
+RW=(1:1:bm); %distribusi bobot
+L=floor(dr*N/2);
+obo=ceil(100*pbo);
+obv=ceil(100*pbv);
+obw=ceil(100*pbw);
+vbo=[zeros(1,100-obo) ones(1,obo)];                                                                
+vbv=[zeros(1,100-obv) ones(1,obv)];                                                                
+vbw=[zeros(1,100-obw) ones(1,obw)];
+omo=ceil(100*mio);
+omv=ceil(100*miv);
+omw=ceil(100*miw);
+vmo=[zeros(1,100-omo) ones(1,omo)];
+vmv=[zeros(1,100-omv) ones(1,omv)];
+vmw=[zeros(1,100-omw) ones(1,omw)];
+ %--------------------------------------------------------------------------------    
+                TSus=zeros(Nsim,LT);
+                TInfo=zeros(Nsim,LT);
+                TReco=zeros(Nsim,LT);
+                TDedo=zeros(Nsim,LT);
+                TAInfo=zeros(Nsim,LT);
+                TInfv=zeros(Nsim,LT);
+                TRecv=zeros(Nsim,LT);
+                TDedv=zeros(Nsim,LT);
+                TAInfv=zeros(Nsim,LT);
+                TInfw=zeros(Nsim,LT);
+                TInft=zeros(Nsim,LT);
+                TRecw=zeros(Nsim,LT);
+                TDedw=zeros(Nsim,LT);
+                TAInfw=zeros(Nsim,LT);
+                TAInft=zeros(Nsim,LT);
+                RTSus=zeros(1,LT);
+                RTInfo=zeros(1,LT);
+                RTReco=zeros(1,LT);
+                RTDedo=zeros(1,LT);
+                RTAInfo=zeros(1,LT);
+                RTInfv=zeros(1,LT);
+                RTRecv=zeros(1,LT);
+                RTDedv=zeros(1,LT);
+                RTAInfv=zeros(1,LT); 
+                RTInfw=zeros(1,LT);
+                RTRecw=zeros(1,LT);
+                RTDedw=zeros(1,LT);
+                RTAInfw=zeros(1,LT);  
+                RTAInft=zeros(1,LT);    
+                ROO=zeros(N,Nsim);
+                ROV=zeros(N,Nsim);
+                ROW=zeros(N,Nsim); 
+                MRo=zeros(1,Nsim);
+                MRv=zeros(1,Nsim);
+                MRw=zeros(1,Nsim);
+figure(1);
+for sim=1:Nsim              
+                %inisiasi vektor 
+                %mengkonstruksi matriks ketetanggaan berdasarkan derajat rata-rata yang diberikan pada setiap simulasi     
+                Sus=zeros(N,LT);
+                Info=zeros(N,LT);
+                Reco=zeros(N,LT);
+                Dedo=zeros(N,LT);
+                AInfo=zeros(N,LT);
+                Infv=zeros(N,LT);
+                Recv=zeros(N,LT);
+                Dedv=zeros(N,LT);
+                AInfv=zeros(N,LT); 
+                Infw=zeros(N,LT);
+                Recw=zeros(N,LT);
+                Dedw=zeros(N,LT);
+                AInfw=zeros(N,LT);  
+                AInft=zeros(N,LT);    %total infeksi seluruh varian dari susceptibel       
+                tauo=LT*ones(N,1);
+                iitauo=LT*ones(N,LT);              
+                tauv=LT*ones(N,1);
+                iitauv=LT*ones(N,LT);  
+                tauw=LT*ones(N,1);
+                iitauw=LT*ones(N,LT);                 
+                finfo=zeros(N,LT);               
+                freco=zeros(N,LT);
+                finfv=zeros(N,LT);               
+                frecv=zeros(N,LT);                
+                finfw=zeros(N,LT);               
+                frecw=zeros(N,LT);                        
+                akinfo=zeros(N,LT);
+                akinfv=zeros(N,LT);
+                akinfw=zeros(N,LT);
+                %---------------------------------------------------------------------------------------  
+                %mengkonstruksi Matriks ketetanggaan di awal simulasi. Diasumsikan derajat masing-masing verteks tetap setiap waktu. 
+                A=zeros(N,N);
+                %A=sfnetwork(N,L);
+                              
+                dk=1;
+                while dk<=L
+                        r=randi([1 (N-1)]);
+                        c=randi([(r+1) N]);
+                        if (A(r,c)==0)
+                              A(r,c)=1;
+                              A(c,r)=A(r,c);
+                              dk=dk+1;
+                        else
+                              A(r,c)=A(r,c);
+                              A(c,r)=A(r,c);                             
+                        end
+                end                                                         
+                %-------------------------------------------------------------------------               
+                %mengkonstruksi matriks bobot
+                W=zeros(N,N); %bangun matriks bobot diperbarui setiap waktu t    
+                
+                for i=1:(N-1)
+                    for j=(i+1):N
+                        if (A(i,j)==1)
+                            W(i,j)=randi([1 bm]);
+                            W(j,i)=W(i,j);
+                        end
+                    end
+                end
+                        
+                TS=[];
+                for i=1:N
+                    TV=find(A(i,:)==1);
+                    [btv,ktv]=size(TV);
+                    
+                    if (ktv==0)
+                          TS=union(TS,i);  %menentukan verteks yang tidak bertetangga
+                    end
+                end
+                
+                %%banyak verteks dengan masing-masing derajat                                                  
+                [bts, kts]=size(TS); %menentukan jumlah verteks yang tidak bertetangga sama sekali
+                
+                %menentukan jumlah aktual verteks bertetangga dan verteks yang bertetangga
+                VT=setdiff(NV,TS);
+                [bvt, kvt]=size(VT);
+                              
+                %memilih secara acak verteks yang terinfeksi alami dari
+                %verteks yang terhubung
+                IV=randsample(VT,No);
+                SV=setdiff(NV,IV);                                       
+                %verteks yang terinfeksi
+                for i=1:No
+                    Sus(IV(i),1)=0;
+                    Info(IV(i),1)=1;
+                    Reco(IV(i),1)=0;
+                    Dedo(IV(i),1)=0;
+                    AInfo(IV(i),1)=1;
+                    Infv(IV(i),1)=0;
+                    Recv(IV(i),1)=0;
+                    Dedv(IV(i),1)=0;
+                    AInfv(IV(i),1)=0;
+                    Infw(IV(i),1)=0;
+                    Recw(IV(i),1)=0;
+                    Dedw(IV(i),1)=0;
+                    AInfw(IV(i),1)=0;
+                    AInft(IV(i),1)=1;
+                    iitauo(IV(i),1)=1; 
+                    tauo(IV(i))=1;                     
+                    %menentukan fungsi infeksi dan recovery masing-masing verteks yang terinfeksi alami di awal
+                    finfo(IV(i),1)=step(1,tauo(IV(i))); %fungsi terinfeks                    
+                    freco(IV(i),1)=step(1,(tauo(IV(i))+dpo)); %fungsi yang menentukan seseorang sembuh dari infeksi alami  
+                    finfv(IV(i),1)=step(1,tauv(IV(i))); %fungsi terinfeksi                    
+                    frecv(IV(i),1)=step(1,(tauv(IV(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari infeksi varian 1
+                    finfw(IV(i),1)=step(1,tauw(IV(i))); %fungsi terinfeksi                    
+                    frecw(IV(i),1)=step(1,(tauw(IV(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari infeksi varian 1                                       
+                end             
+                %verteks yang rentan
+                for i=1:(N-No)
+                    Sus(SV(i),1)=1;
+                    Info(SV(i),1)=0;
+                    Reco(SV(i),1)=0;
+                    Dedo(SV(i),1)=0;
+                    AInfo(SV(i),1)=0;
+                    Infv(SV(i),1)=0;
+                    Recv(SV(i),1)=0;
+                    Dedv(SV(i),1)=0;
+                    AInfv(SV(i),1)=0;
+                    Infw(SV(i),1)=0;
+                    Recw(SV(i),1)=0;
+                    Dedw(SV(i),1)=0;
+                    AInfw(SV(i),1)=0; 
+                    AInft(SV(i),1)=0;                   
+                    %menentukan fungsi infeksi dan recovery masing-masing verteks yang terinfeksi alami di awal
+                    finfo(SV(i),1)=step(1,tauo(SV(i))); %fungsi terinfeksi                    
+                    freco(SV(i),1)=step(1,(tauo(SV(i))+dpo)); %fungsi yang menentukan seseorang sembuh dari infeksi alami  
+                    finfv(SV(i),1)=step(1,tauv(SV(i))); %fungsi terinfeksi                    
+                    frecv(SV(i),1)=step(1,(tauv(SV(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari infeksi varian 1 
+                    finfw(SV(i),1)=step(1,tauw(SV(i))); %fungsi terinfeksi                    
+                    frecw(SV(i),1)=step(1,(tauw(SV(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari infeksi varian 2         
+                end        
+                %----------------------------------------------------------     
+                %menghitung total masing-masing kompartemen pada saat awal 
+                TSus(sim,1)=sum(Sus(:,1));
+                TInfo(sim,1)=sum(Info(:,1));
+                TReco(sim,1)=sum(Reco(:,1));
+                TDedo(sim,1)=sum(Dedo(:,1));
+                TAInfo(sim,1)=sum(AInfo(:,1)); 
+                TInfv(sim,1)=sum(Infv(:,1));
+                TRecv(sim,1)=sum(Recv(:,1));
+                TDedv(sim,1)=sum(Dedv(:,1));
+                TAInfv(sim,1)=sum(AInfv(:,1)); 
+                TInfw(sim,1)=sum(Infw(:,1));
+                TRecw(sim,1)=sum(Recw(:,1));
+                TDedw(sim,1)=sum(Dedw(:,1));
+                TAInfw(sim,1)=sum(AInfw(:,1));                 
+                TAInft(sim,1)=sum(AInft(:,1));
+              %--------------------------------------------------------------------------------------------        
+              for t=2:LT                                                                                        
+                          if (t==dtv)
+                                  %dinamik verteks yang tak bertetangga pada waktu t=dtv
+                                  if (kts~=0)
+                                      for i=1:kts 
+                                            pmo=randsample(vmo,1);
+                                            pmv=randsample(vmv,1);
+                                            pmw=randsample(vmw,1);
+                                            Sus(TS(i),t)=Sus(TS(i),t-1);
+                                            Info(TS(i),t)=Info(TS(i),t-1)*(1-(finfo(TS(i),t-1)-freco(TS(i),t-1))*pmo-freco(TS(i),t-1));
+                                            Reco(TS(i),t)=Reco(TS(i),t-1)+freco(TS(i),t-1)*Info(TS(i),t-1);
+                                            Dedo(TS(i),t)=Dedo(TS(i),t-1)+(finfo(TS(i),t-1)-freco(TS(i),t-1))*pmo*Info(TS(i),t-1);
+                                            AInfo(TS(i),t)=AInfo(TS(i),t-1);
+                                            Infv(TS(i),t)=Infv(TS(i),t-1)*(1-(finfv(TS(i),t-1)-frecv(TS(i),t-1))*pmv-frecv(TS(i),t-1));
+                                            Recv(TS(i),t)=Recv(TS(i),t-1)+frecv(TS(i),t-1)*Infv(TS(i),t-1);
+                                            Dedv(TS(i),t)=Dedv(TS(i),t-1)+(finfv(TS(i),t-1)-frecv(TS(i),t-1))*pmv*Infv(TS(i),t-1);
+                                            AInfv(TS(i),t)=AInfv(TS(i),t-1); 
+                                            Infw(TS(i),t)=Infw(TS(i),t-1)*(1-(finfw(TS(i),t-1)-frecw(TS(i),t-1))*pmw-frecw(TS(i),t-1));
+                                            Recw(TS(i),t)=Recw(TS(i),t-1)+frecw(TS(i),t-1)*Infw(TS(i),t-1);
+                                            Dedw(TS(i),t)=Dedw(TS(i),t-1)+(finfw(TS(i),t-1)-frecw(TS(i),t-1))*pmw*Infw(TS(i),t-1);
+                                            AInfw(TS(i),t)=AInfw(TS(i),t-1);  
+                                            AInft(TS(i),t)=AInft(TS(i),t-1);                     
+                                      end
+                                  end                                    
+                               
+                               %menentukan verteks bertetangga baik suscpetible atau recovero yang akan terinfeksi varian 1
+                               HVV=[];
+                               for i=1:kvt
+                                    if (Sus(VT(i),t-1)==1 || Reco(VT(i),t-1)==1)
+                                          HVV=union(HVV,VT(i));                                    
+                                    end
+                               end
+                               [bhvv,khvv]=size(HVV);
+                               
+                               if (khvv>=Nov) 
+                                    VNV=randsample(HVV,Nov); %banyak suscetibel atau recovero yang akan terinfeksi varian 1
+                                    BVNV=setdiff(VT,VNV);
+                                                                        
+                                    for i=1:Nov
+                                                Sus(VNV(i),t)=0;
+                                                Info(VNV(i),t)=0;
+                                                Reco(VNV(i),t)=0;
+                                                Dedo(VNV(i),t)=0;
+                                                AInfo(VNV(i),t)=AInfo(VNV(i),t-1);
+                                                Infv(VNV(i),t)=1;
+                                                Recv(VNV(i),t)=0;
+                                                Dedv(VNV(i),t)=0;
+                                                AInfv(VNV(i),t)=1; 
+                                                Infw(VNV(i),t)=0;
+                                                Recw(VNV(i),t)=0;
+                                                Dedw(VNV(i),t)=0;
+                                                AInfw(VNV(i),t)=0;
+                                                AInft(VNV(i),t)=1;  
+                                                iitauv(VNV(i),t)=dtv; 
+                                                iv=iitauv(VNV(i),:);
+                                                tauv(VNV(i))=min(iv(iv>0)); 
+                                                                                                                                          
+                                                %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                                finfo(VNV(i),t)=step(t,tauo(VNV(i))); %fungsi terinfeksi alami                                      
+                                                freco(VNV(i),t)=step(t,(tauo(VNV(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                                finfv(VNV(i),t)=step(t,tauv(VNV(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecv(VNV(i),t)=step(t,(tauv(VNV(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                                finfw(VNV(i),t)=step(t,tauw(VNV(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecw(VNV(i),t)=step(t,(tauw(VNV(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                                            
+                                    end
+                                    
+                                    for i=1:(kvt-Nov)                                         
+                                          %menentukan dinamik verteks bertetangga yang tidak terinfeksi varian 1 pada waktu t=dtv
+                                          %menentukan akumulasi infeksi masing-masing verteks
+                                          ako=1;
+                                          akv=1;
+                                          akw=1;
+                                          ttv=find(A(BVNV(i),:)==1);    
+                                          [bttv,kttv]=size(ttv);
+                                          if (Sus(BVNV(i),t-1)==1)                                                    
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(BVNV(i),ttv(j))                                                                                                                              
+                                                                pio=randsample(vbo,1);
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                ako=ako*(1-pio*A(BVNV(i),ttv(j))*Info(ttv(j),t-1));
+                                                                akv=akv*(1-piv*A(BVNV(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(BVNV(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          if (ako==0)
+                                                             ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end
+                                                     
+                                                                if (ako*akv*akw~=1)
+                                                                       vak=[ako akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==1)
+                                                                            ako=0;
+                                                                            akv=1;
+                                                                            akw=1;
+                                                                       elseif (piv==2)
+                                                                            ako=1;
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else 
+                                                                            ako=1;
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          elseif (Reco(BVNV(i),t-1)==1)                                                 
+                                                   for j=1:kttv                                                                                                  
+                                                          for k=1:W(BVNV(i),ttv(j))                                                               
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                akv=akv*(1-piv*A(BVNV(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(BVNV(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                                                                                                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end 
+                                                     
+                                                                if (akv*akw~=1)
+                                                                       vak=[1 akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==2)
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          end
+                                          akinfo(BVNV(i),t)=1-ako;
+                                          akinfv(BVNV(i),t)=1-akv;
+                                          akinfw(BVNV(i),t)=1-akw;
+                                          
+                                          %menghitung dinamik SII1RR1 pada waktu t                                          
+                                          pmo=randsample(vmo,1);
+                                          pmv=randsample(vmv,1); 
+                                          pmw=randsample(vmw,1);                                        
+                                          Sus(BVNV(i),t)=Sus(BVNV(i),t-1)*(1-(akinfo(BVNV(i),t)+akinfv(BVNV(i),t)+akinfw(BVNV(i),t)));
+                                          Info(BVNV(i),t)=Info(BVNV(i),t-1)*(1-(finfo(BVNV(i),t-1)-freco(BVNV(i),t-1))*pmo-freco(BVNV(i),t-1))+Sus(BVNV(i),t-1)*akinfo(BVNV(i),t);
+                                          Reco(BVNV(i),t)=Reco(BVNV(i),t-1)*(1-freco(BVNV(i),t-1)*(akinfv(BVNV(i),t)+akinfw(BVNV(i),t)))+freco(BVNV(i),t-1)*Info(BVNV(i),t-1);
+                                          Dedo(BVNV(i),t)=Dedo(BVNV(i),t-1)+(finfo(BVNV(i),t-1)-freco(BVNV(i),t-1))*pmo*Info(BVNV(i),t-1);
+                                          AInfo(BVNV(i),t)=AInfo(BVNV(i),t-1)+Sus(BVNV(i),t-1)*akinfo(BVNV(i),t);                              
+                                          Infv(BVNV(i),t)=Infv(BVNV(i),t-1)*(1-(finfv(BVNV(i),t-1)-frecv(BVNV(i),t-1))*pmv-frecv(BVNV(i),t-1))+(Sus(BVNV(i),t-1)+freco(BVNV(i),t-1)*Reco(BVNV(i),t-1))*akinfv(BVNV(i),t);
+                                          Recv(BVNV(i),t)=Recv(BVNV(i),t-1)*(1-frecv(BVNV(i),t-1)*akinfw(BVNV(i),t))+frecv(BVNV(i),t-1)*Infv(BVNV(i),t-1);
+                                          Dedv(BVNV(i),t)=Dedv(BVNV(i),t-1)+(finfv(BVNV(i),t-1)-frecv(BVNV(i),t-1))*pmv*Infv(BVNV(i),t-1);
+                                          AInfv(BVNV(i),t)=AInfv(BVNV(i),t-1)+(Sus(BVNV(i),t-1)+Reco(BVNV(i),t-1))*akinfv(BVNV(i),t);
+                                          Infw(BVNV(i),t)=Infw(BVNV(i),t-1)*(1-(finfw(BVNV(i),t-1)-frecw(BVNV(i),t-1))*pmw-frecw(BVNV(i),t-1))+(Sus(BVNV(i),t-1)+freco(BVNV(i),t-1)*Reco(BVNV(i),t-1)+frecv(BVNV(i),t-1)*Recv(BVNV(i),t-1))*akinfw(BVNV(i),t);
+                                          Recw(BVNV(i),t)=Recw(BVNV(i),t-1)+frecw(BVNV(i),t-1)*Infw(BVNV(i),t-1);
+                                          Dedw(BVNV(i),t)=Dedw(BVNV(i),t-1)+(finfw(BVNV(i),t-1)-frecw(BVNV(i),t-1))*pmw*Infw(BVNV(i),t-1);
+                                          AInfw(BVNV(i),t)=AInfw(BVNV(i),t-1)+(Sus(BVNV(i),t-1)+Reco(BVNV(i),t-1)+Recv(BVNV(i),t-1))*akinfw(BVNV(i),t);                                           
+                                          AInft(BVNV(i),t)=AInft(BVNV(i),t-1)+ Sus(BVNV(i),t-1)*(akinfo(BVNV(i),t)+akinfv(BVNV(i),t)+akinfw(BVNV(i),t));
+                                          %menentukan kapan masing-masing individu terinfeksi alami pertama kali
+                                          if (Info(BVNV(i),t)==1)
+                                             
+                                              iitauo(BVNV(i),t)=t;                                              
+                                          else
+                                              iitauo(BVNV(i),t)=LT;
+                                          end 
+                                          io=iitauo(BVNV(i),:);
+                                          tauo(BVNV(i))=min(io(io>0));
+                                          %menentukan kapan masing-masing individu terinfeksi varian 1 pertama kali
+                                          if (Infv(BVNV(i),t)==1)                                              
+                                              iitauv(BVNV(i),t)=t;                                           
+                                          else
+                                              iitauv(BVNV(i),t)=LT;                                             
+                                          end
+                                          iv=iitauv(BVNV(i),:);
+                                          tauv(BVNV(i))=min(iv(iv>0));
+                                          
+                                          %menentukan kapan masing-masing individu terinfeksi varian 2 pertama kali
+                                          if (Infw(BVNV(i),t)==1)                                              
+                                              iitauw(BVNV(i),t)=t;                                           
+                                          else
+                                              iitauw(BVNV(i),t)=LT;                                             
+                                          end
+                                          iw=iitauw(BVNV(i),:);
+                                          tauw(BVNV(i))=min(iw(iw>0));
+                                          
+                                          %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                          finfo(BVNV(i),t)=step(t,tauo(BVNV(i))); %fungsi terinfeksi alami                                      
+                                          freco(BVNV(i),t)=step(t,(tauo(BVNV(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                          finfv(BVNV(i),t)=step(t,tauv(BVNV(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecv(BVNV(i),t)=step(t,(tauv(BVNV(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                          finfw(BVNV(i),t)=step(t,tauw(BVNV(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecw(BVNV(i),t)=step(t,(tauw(BVNV(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                                         
+                                    end
+                                    
+                               else
+                                    VTV=setdiff(VT,HVV);
+                                    for i=1:khvv
+                                                Sus(HVV(i),t)=0;
+                                                Info(HVV(i),t)=0;
+                                                Reco(HVV(i),t)=0;
+                                                Dedo(HVV(i),t)=0;
+                                                AInfo(HVV(i),t)=AInfo(HVV(i),t-1);
+                                                Infv(HVV(i),t)=1;
+                                                Recv(HVV(i),t)=0;
+                                                Dedv(HVV(i),t)=0;
+                                                AInfv(HVV(i),t)=1; 
+                                                Infw(HVV(i),t)=0;
+                                                Recw(HVV(i),t)=0;
+                                                Dedw(HVV(i),t)=0;
+                                                AInfw(HVV(i),t)=0; 
+                                                AInft(HVV(i),t)=1;  
+                                                iitauv(HVV(i),t)=dtv; 
+                                                iv=iitauv(HVV(i),:);
+                                                tauv(HVV(i))=min(iv(iv>0)); 
+                                                                                                                                          
+                                                %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                                finfo(HVV(i),t)=step(t,tauo(HVV(i))); %fungsi terinfeksi alami                                      
+                                                freco(HVV(i),t)=step(t,(tauo(HVV(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                                finfv(HVV(i),t)=step(t,tauv(HVV(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecv(HVV(i),t)=step(t,(tauv(HVV(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                                finfw(HVV(i),t)=step(t,tauw(HVV(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecw(HVV(i),t)=step(t,(tauw(HVV(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                                             
+                                    end
+                                    
+                                    for i=1:(kvt-khvv)
+                                          %menentukan dinamik verteks bertetangga yang tidak terinfeksi varian 1 pada waktu t=dtv
+                                          %menentukan akumulasi infeksi masing-masing verteks
+                                          ako=1;
+                                          akv=1;
+                                          akw=1;
+                                          ttv=find(A(VTV(i),:)==1);    
+                                          [bttv,kttv]=size(ttv);
+                                          if (Sus(VTV(i),t-1)==1)
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(VTV(i),ttv(j))                       
+                                                                pio=randsample(vbo,1);
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                ako=ako*(1-pio*A(VTV(i),ttv(j))*Info(ttv(j),t-1));
+                                                                akv=akv*(1-piv*A(VTV(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(VTV(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          
+                                                          if (ako==0)
+                                                             ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end
+                                                     
+                                                                if (ako*akv*akw~=1)                                                                
+                                                                       vak=[ako akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==1)
+                                                                            ako=0;
+                                                                            akv=1;
+                                                                            akw=1;
+                                                                       elseif (piv==2)
+                                                                            ako=1;
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else 
+                                                                            ako=1;
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          elseif (Reco(VTV(i),t-1)==1)
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(VTV(i),ttv(j))                                                               
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                akv=akv*(1-piv*A(VTV(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(VTV(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end                                                                                                                   
+                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end  
+                                                     
+                                                                if (akv*akw~=1)
+                                                                       vak=[1 akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==2)
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end                                        
+                                          end
+                                          akinfo(VTV(i),t)=1-ako;
+                                          akinfv(VTV(i),t)=1-akv;
+                                          akinfw(VTV(i),t)=1-akw;
+                                          
+                                          %menghitung dinamik SII1RR1 pada waktu t                                          
+                                          pmo=randsample(vmo,1);
+                                          pmv=randsample(vmv,1); 
+                                          pmw=randsample(vmw,1);                                        
+                                          Sus(VTV(i),t)=Sus(VTV(i),t-1)*(1-(akinfo(VTV(i),t)+akinfv(VTV(i),t)+akinfw(VTV(i),t)));
+                                          Info(VTV(i),t)=Info(VTV(i),t-1)*(1-(finfo(VTV(i),t-1)-freco(VTV(i),t-1))*pmo-freco(VTV(i),t-1))+Sus(VTV(i),t-1)*akinfo(VTV(i),t);
+                                          Reco(VTV(i),t)=Reco(VTV(i),t-1)*(1-freco(VTV(i),t-1)*(akinfv(VTV(i),t)+akinfw(VTV(i),t)))+freco(VTV(i),t-1)*Info(VTV(i),t-1);
+                                          Dedo(VTV(i),t)=Dedo(VTV(i),t-1)+(finfo(VTV(i),t-1)-freco(VTV(i),t-1))*pmo*Info(VTV(i),t-1);
+                                          AInfo(VTV(i),t)=AInfo(VTV(i),t-1)+Sus(VTV(i),t-1)*akinfo(VTV(i),t);                              
+                                          Infv(VTV(i),t)=Infv(VTV(i),t-1)*(1-(finfv(VTV(i),t-1)-frecv(VTV(i),t-1))*pmv-frecv(VTV(i),t-1))+(Sus(VTV(i),t-1)+freco(VTV(i),t-1)*Reco(VTV(i),t-1))*akinfv(VTV(i),t);
+                                          Recv(VTV(i),t)=Recv(VTV(i),t-1)*(1-frecv(VTV(i),t-1)*akinfw(VTV(i),t))+frecv(VTV(i),t-1)*Infv(VTV(i),t-1);
+                                          Dedv(VTV(i),t)=Dedv(VTV(i),t-1)+(finfv(VTV(i),t-1)-frecv(VTV(i),t-1))*pmv*Infv(VTV(i),t-1);
+                                          AInfv(VTV(i),t)=AInfv(VTV(i),t-1)+(Sus(VTV(i),t-1)+Reco(VTV(i),t-1))*akinfv(VTV(i),t);
+                                          Infw(VTV(i),t)=Infw(VTV(i),t-1)*(1-(finfw(VTV(i),t-1)-frecw(VTV(i),t-1))*pmw-frecw(VTV(i),t-1))+(Sus(VTV(i),t-1)+freco(VTV(i),t-1)*Reco(VTV(i),t-1)+frecv(VTV(i),t-1)*Recv(VTV(i),t-1))*akinfw(VTV(i),t);
+                                          Recw(VTV(i),t)=Recw(VTV(i),t-1)+frecw(VTV(i),t-1)*Infw(VTV(i),t-1);
+                                          Dedw(VTV(i),t)=Dedw(VTV(i),t-1)+(finfw(VTV(i),t-1)-frecw(VTV(i),t-1))*pmw*Infw(VTV(i),t-1);
+                                          AInfw(VTV(i),t)=AInfw(VTV(i),t-1)+(Sus(VTV(i),t-1)+Reco(VTV(i),t-1)+Recv(VTV(i),t-1))*akinfw(VTV(i),t);                                           
+                                          AInft(VTV(i),t)=AInft(VTV(i),t-1)+ Sus(VTV(i),t-1)*(akinfo(VTV(i),t)+akinfv(VTV(i),t)+akinfw(VTV(i),t));
+                                          %menentukan kapan masing-masing individu terinfeksi alami pertama kali
+                                          if (Info(VTV(i),t)==1)
+                                             
+                                              iitauo(VTV(i),t)=t;                                              
+                                          else
+                                              iitauo(VTV(i),t)=LT;
+                                          end
+                                          io=iitauo(VTV(i),:);
+                                          tauo(VTV(i))=min(io(io>0));
+                                          %menentukan kapan masing-masing individu terinfeksi varian 1 pertama kali
+                                          if (Infv(VTV(i),t)==1)                                              
+                                              iitauv(VTV(i),t)=t;                                           
+                                          else
+                                              iitauv(VTV(i),t)=LT;                                             
+                                          end
+                                          iv=iitauv(VTV(i),:);
+                                          tauv(VTV(i))=min(iv(iv>0));
+                                          
+                                          %menentukan kapan masing-masing individu terinfeksi varian 2 pertama kali
+                                          if (Infw(VTV(i),t)==1)                                              
+                                              iitauw(VTV(i),t)=t;                                           
+                                          else
+                                              iitauw(VTV(i),t)=LT;                                             
+                                          end
+                                          iw=iitauw(VTV(i),:);
+                                          tauw(VTV(i))=min(iw(iw>0));
+                                          
+                                          %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                          finfo(VTV(i),t)=step(t,tauo(VTV(i))); %fungsi terinfeksi alami                                      
+                                          freco(VTV(i),t)=step(t,(tauo(VTV(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                          finfv(VTV(i),t)=step(t,tauv(VTV(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecv(VTV(i),t)=step(t,(tauv(VTV(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                          finfw(VTV(i),t)=step(t,tauw(VTV(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecw(VTV(i),t)=step(t,(tauw(VTV(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                                         
+                                    end
+                               end 
+                               
+                          elseif (t==dtv+dtw)
+                               
+                                  %dinamik verteks yang tak bertetangga pada waktu t=dtv+dtw
+                                  if (kts~=0)
+                                      for i=1:kts 
+                                            pmo=randsample(vmo,1);
+                                            pmv=randsample(vmv,1);
+                                            pmw=randsample(vmw,1);
+                                            Sus(TS(i),t)=Sus(TS(i),t-1);
+                                            Info(TS(i),t)=Info(TS(i),t-1)*(1-(finfo(TS(i),t-1)-freco(TS(i),t-1))*pmo-freco(TS(i),t-1));
+                                            Reco(TS(i),t)=Reco(TS(i),t-1)+freco(TS(i),t-1)*Info(TS(i),t-1);
+                                            Dedo(TS(i),t)=Dedo(TS(i),t-1)+(finfo(TS(i),t-1)-freco(TS(i),t-1))*pmo*Info(TS(i),t-1);
+                                            AInfo(TS(i),t)=AInfo(TS(i),t-1);
+                                            Infv(TS(i),t)=Infv(TS(i),t-1)*(1-(finfv(TS(i),t-1)-frecv(TS(i),t-1))*pmv-frecv(TS(i),t-1));
+                                            Recv(TS(i),t)=Recv(TS(i),t-1)+frecv(TS(i),t-1)*Infv(TS(i),t-1);
+                                            Dedv(TS(i),t)=Dedv(TS(i),t-1)+(finfv(TS(i),t-1)-frecv(TS(i),t-1))*pmv*Infv(TS(i),t-1);
+                                            AInfv(TS(i),t)=AInfv(TS(i),t-1); 
+                                            Infw(TS(i),t)=Infw(TS(i),t-1)*(1-(finfw(TS(i),t-1)-frecw(TS(i),t-1))*pmw-frecw(TS(i),t-1));
+                                            Recw(TS(i),t)=Recw(TS(i),t-1)+frecw(TS(i),t-1)*Infw(TS(i),t-1);
+                                            Dedw(TS(i),t)=Dedw(TS(i),t-1)+(finfw(TS(i),t-1)-frecw(TS(i),t-1))*pmw*Infw(TS(i),t-1);
+                                            AInfw(TS(i),t)=AInfw(TS(i),t-1);  
+                                            AInft(TS(i),t)=AInft(TS(i),t-1);                     
+                                      end
+                                  end 
+                               
+                               %menentukan verteks bertetangga baik
+                               %suscpetible atau recovero yang akan terinfeksi varian 2
+                               HVW=[];
+                               for i=1:kvt
+                                    if (Sus(VT(i),t-1)==1 || Reco(VT(i),t-1)==1 || Recv(VT(i),t-1)==1)
+                                          HVW=union(HVW,VT(i));                                    
+                                    end
+                               end
+                               
+                               [bhvw,khvw]=size(HVW);
+                               
+                               if (khvw>=Now)
+                                    VNW=randsample(HVW,Now);
+                                    BVNW=setdiff(VT,VNW);
+                                    
+                                    for i=1:Now
+                                                Sus(VNW(i),t)=0;
+                                                Info(VNW(i),t)=0;
+                                                Reco(VNW(i),t)=0;
+                                                Dedo(VNW(i),t)=0;
+                                                AInfo(VNW(i),t)=AInfo(VNW(i),t-1);
+                                                Infv(VNW(i),t)=0;
+                                                Recv(VNW(i),t)=0;
+                                                Dedv(VNW(i),t)=0;
+                                                AInfv(VNW(i),t)=AInfv(VNW(i),t-1); 
+                                                Infw(VNW(i),t)=1;
+                                                Recw(VNW(i),t)=0;
+                                                Dedw(VNW(i),t)=0;
+                                                AInfw(VNW(i),t)=1; 
+                                                AInft(VNW(i),t)=1; 
+                                                iitauw(VNW(i),t)=dtv+dtw;
+                                                iw=iitauw(VNW(i),:);
+                                                tauw(VNW(i))=min(iw(iw>0)); 
+                                                                                                                                          
+                                                %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                                finfo(VNW(i),t)=step(t,tauo(VNW(i))); %fungsi terinfeksi alami                                      
+                                                freco(VNW(i),t)=step(t,(tauo(VNW(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                                finfv(VNW(i),t)=step(t,tauv(VNW(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecv(VNW(i),t)=step(t,(tauv(VNW(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                                finfw(VNW(i),t)=step(t,tauw(VNW(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecw(VNW(i),t)=step(t,(tauw(VNW(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                                            
+                                    end
+                                    
+                                    for i=1:(kvt-Now)
+                                          %menentukan dinamik verteks bertetangga yang tidak terinfeksi varian 1 pada waktu t=dtv
+                                          %menentukan akumulasi infeksi masing-masing verteks
+                                          ako=1;
+                                          akv=1;
+                                          akw=1;
+                                          ttv=find(A(BVNW(i),:)==1);    
+                                          [bttv,kttv]=size(ttv);
+                                          if (Sus(BVNW(i),t-1)==1)
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(BVNW(i),ttv(j))                                             
+                                                                pio=randsample(vbo,1);
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                ako=ako*(1-pio*A(BVNW(i),ttv(j))*Info(ttv(j),t-1));
+                                                                akv=akv*(1-piv*A(BVNW(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(BVNW(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          
+                                                          if (ako==0)
+                                                             ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end
+                                                     
+                                                                if (ako*akv*akw~=1)                                                                       
+                                                                       vak=[ako akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==1)
+                                                                            ako=0;
+                                                                            akv=1;
+                                                                            akw=1;
+                                                                       elseif (piv==2)
+                                                                            ako=1;
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else 
+                                                                            ako=1;
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          elseif (Reco(BVNW(i),t-1)==1)
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(BVNW(i),ttv(j))                                                                
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                akv=akv*(1-piv*A(BVNW(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(BVNW(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          
+                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end  
+                                                     
+                                                                if (akv*akw~=1)                                                                     
+                                                                       vak=[1 akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==2)
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          
+                                          elseif (Recv(BVNW(i),t-1)==1)
+                                                     for j=1:kttv                                                                                                  
+                                                          for k=1:W(BVNW(i),ttv(j))                                                              
+                                                                piw=randsample(vbw,1);
+                                                                akw=akw*(1-piw*A(BVNW(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end                                                                                                                   
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                     end                                           
+                                          end
+                                          akinfo(BVNW(i),t)=1-ako;
+                                          akinfv(BVNW(i),t)=1-akv;
+                                          akinfw(BVNW(i),t)=1-akw;
+                                          
+                                          %menghitung dinamik SII1RR1 pada waktu t                                          
+                                          pmo=randsample(vmo,1);
+                                          pmv=randsample(vmv,1); 
+                                          pmw=randsample(vmw,1);                                        
+                                          Sus(BVNW(i),t)=Sus(BVNW(i),t-1)*(1-(akinfo(BVNW(i),t)+akinfv(BVNW(i),t)+akinfw(BVNW(i),t)));
+                                          Info(BVNW(i),t)=Info(BVNW(i),t-1)*(1-(finfo(BVNW(i),t-1)-freco(BVNW(i),t-1))*pmo-freco(BVNW(i),t-1))+Sus(BVNW(i),t-1)*akinfo(BVNW(i),t);
+                                          Reco(BVNW(i),t)=Reco(BVNW(i),t-1)*(1-freco(BVNW(i),t-1)*(akinfv(BVNW(i),t)+akinfw(BVNW(i),t)))+freco(BVNW(i),t-1)*Info(BVNW(i),t-1);
+                                          Dedo(BVNW(i),t)=Dedo(BVNW(i),t-1)+(finfo(BVNW(i),t-1)-freco(BVNW(i),t-1))*pmo*Info(BVNW(i),t-1);
+                                          AInfo(BVNW(i),t)=AInfo(BVNW(i),t-1)+Sus(BVNW(i),t-1)*akinfo(BVNW(i),t);                              
+                                          Infv(BVNW(i),t)=Infv(BVNW(i),t-1)*(1-(finfv(BVNW(i),t-1)-frecv(BVNW(i),t-1))*pmv-frecv(BVNW(i),t-1))+(Sus(BVNW(i),t-1)+freco(BVNW(i),t-1)*Reco(BVNW(i),t-1))*akinfv(BVNW(i),t);
+                                          Recv(BVNW(i),t)=Recv(BVNW(i),t-1)*(1-frecv(BVNW(i),t-1)*akinfw(BVNW(i),t))+frecv(BVNW(i),t-1)*Infv(BVNW(i),t-1);
+                                          Dedv(BVNW(i),t)=Dedv(BVNW(i),t-1)+(finfv(BVNW(i),t-1)-frecv(BVNW(i),t-1))*pmv*Infv(BVNW(i),t-1);
+                                          AInfv(BVNW(i),t)=AInfv(BVNW(i),t-1)+(Sus(BVNW(i),t-1)+Reco(BVNW(i),t-1))*akinfv(BVNW(i),t);
+                                          Infw(BVNW(i),t)=Infw(BVNW(i),t-1)*(1-(finfw(BVNW(i),t-1)-frecw(BVNW(i),t-1))*pmw-frecw(BVNW(i),t-1))+(Sus(BVNW(i),t-1)+freco(BVNW(i),t-1)*Reco(BVNW(i),t-1)+frecv(BVNW(i),t-1)*Recv(BVNW(i),t-1))*akinfw(BVNW(i),t);
+                                          Recw(BVNW(i),t)=Recw(BVNW(i),t-1)+frecw(BVNW(i),t-1)*Infw(BVNW(i),t-1);
+                                          Dedw(BVNW(i),t)=Dedw(BVNW(i),t-1)+(finfw(BVNW(i),t-1)-frecw(BVNW(i),t-1))*pmw*Infw(BVNW(i),t-1);
+                                          AInfw(BVNW(i),t)=AInfw(BVNW(i),t-1)+(Sus(BVNW(i),t-1)+Reco(BVNW(i),t-1)+Recv(BVNW(i),t-1))*akinfw(BVNW(i),t);                                           
+                                          AInft(BVNW(i),t)=AInft(BVNW(i),t-1)+ Sus(BVNW(i),t-1)*(akinfo(BVNW(i),t)+akinfv(BVNW(i),t)+akinfw(BVNW(i),t));
+                                          %menentukan kapan masing-masing individu terinfeksi alami pertama kali
+                                          if (Info(BVNW(i),t)==1)
+                                             
+                                              iitauo(BVNW(i),t)=t;                                              
+                                          else
+                                              iitauo(BVNW(i),t)=LT;
+                                          end
+                                          io=iitauo(BVNW(i),:);
+                                          tauo(BVNW(i))=min(io(io>0));
+                                          %menentukan kapan masing-masing individu terinfeksi varian 1 pertama kali
+                                          if (Infv(BVNW(i),t)==1)                                              
+                                              iitauv(BVNW(i),t)=t;                                           
+                                          else
+                                              iitauv(BVNW(i),t)=LT;                                             
+                                          end
+                                          iv=iitauv(BVNW(i),:);
+                                          tauv(BVNW(i))=min(iv(iv>0));
+                                          
+                                          %menentukan kapan masing-masing individu terinfeksi varian 2 pertama kali
+                                          if (Infw(BVNW(i),t)==1)                                              
+                                              iitauw(BVNW(i),t)=t;                                           
+                                          else
+                                              iitauw(BVNW(i),t)=LT;                                             
+                                          end
+                                          iw=iitauw(BVNW(i),:);
+                                          tauw(BVNW(i))=min(iw(iw>0));
+                                          
+                                          %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                          finfo(BVNW(i),t)=step(t,tauo(BVNW(i))); %fungsi terinfeksi alami                                      
+                                          freco(BVNW(i),t)=step(t,(tauo(BVNW(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                          finfv(BVNW(i),t)=step(t,tauv(BVNW(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecv(BVNW(i),t)=step(t,(tauv(BVNW(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                          finfw(BVNW(i),t)=step(t,tauw(BVNW(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecw(BVNW(i),t)=step(t,(tauw(BVNW(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                                        
+                                    end
+                               else 
+                                    VTW=setdiff(VT,HVW);
+                                    for i=1:khvw
+                                                Sus(HVW(i),t)=0;
+                                                Info(HVW(i),t)=0;
+                                                Reco(HVW(i),t)=0;
+                                                Dedo(HVW(i),t)=0;
+                                                AInfo(HVW(i),t)=AInfo(HVW(i),t-1);
+                                                Infv(HVW(i),t)=0;
+                                                Recv(HVW(i),t)=0;
+                                                Dedv(HVW(i),t)=0;
+                                                AInfv(HVW(i),t)=AInfv(HVW(i),t-1); 
+                                                Infw(HVW(i),t)=1;
+                                                Recw(HVW(i),t)=0;
+                                                Dedw(HVW(i),t)=0;
+                                                AInfw(HVW(i),t)=1; 
+                                                AInft(HVW(i),t)=1; 
+                                                iitauw(HVW(i),t)=dtv+dtw; 
+                                                iw=iitauw(HVW(i),:);
+                                                tauw(HVW(i))=min(iw(iw>0)); 
+                                                                                                                                          
+                                                %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                                finfo(HVW(i),t)=step(t,tauo(HVW(i))); %fungsi terinfeksi alami                                      
+                                                freco(HVW(i),t)=step(t,(tauo(HVW(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                                finfv(HVW(i),t)=step(t,tauv(HVW(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecv(HVW(i),t)=step(t,(tauv(HVW(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                                finfw(HVW(i),t)=step(t,tauw(HVW(i))); %fungsi terinfeksi oleh varian                                  
+                                                frecw(HVW(i),t)=step(t,(tauw(HVW(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                 
+                                    end
+                                    
+                                    for i=1:(kvt-khvw)       
+                                          %menentukan dinamik verteks bertetangga yang tidak terinfeksi varian 1 pada waktu t=dtv
+                                          %menentukan akumulasi infeksi masing-masing verteks
+                                          ako=1;
+                                          akv=1;
+                                          akw=1;
+                                          ttv=find(A(VTW(i),:)==1);    
+                                          [bttv,kttv]=size(ttv);
+                                          if (Sus(VTW(i),t-1)==1)
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(VTW(i),ttv(j))                                                     
+                                                                pio=randsample(vbo,1);
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                ako=ako*(1-pio*A(VTW(i),ttv(j))*Info(ttv(j),t-1));
+                                                                akv=akv*(1-piv*A(VTW(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(VTW(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          
+                                                          if (ako==0)
+                                                             ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end
+                                                     
+                                                                if (ako*akv*akw~=1)                                                                    
+                                                                       vak=[ako akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==1)
+                                                                            ako=0;
+                                                                            akv=1;
+                                                                            akw=1;
+                                                                       elseif (piv==2)
+                                                                            ako=1;
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else 
+                                                                            ako=1;
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          elseif (Reco(VTW(i),t-1)==1)
+                                                    for j=1:kttv                                                                                                  
+                                                          for k=1:W(VTW(i),ttv(j))                                                              
+                                                                piv=randsample(vbv,1);
+                                                                piw=randsample(vbw,1);
+                                                                akv=akv*(1-piv*A(VTW(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                akw=akw*(1-piw*A(VTW(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          
+                                                         
+                                                          if (akv==0)
+                                                             ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                          end
+                                                          
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                    end  
+                                                     
+                                                                if (akv*akw~=1)                                                                    
+                                                                       vak=[1 akv akw];
+                                                                       vit=find(vak==0); 
+                                                                       piv=randsample(vit,1);
+                                                                       if (piv==2)
+                                                                            akv=0;
+                                                                            akw=1;
+                                                                       else
+                                                                            akv=1;
+                                                                            akw=0;
+                                                                       end                                                                       
+                                                                end
+                                          
+                                          elseif (Recv(VTW(i),t-1)==1)
+                                                     for j=1:kttv                                                                                                  
+                                                          for k=1:W(VTW(i),ttv(j))                                                                
+                                                                piw=randsample(vbw,1);
+                                                                akw=akw*(1-piw*A(VTW(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                          end
+                                                          
+                                                         
+                                                          if (akw==0)
+                                                             ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                          end
+                                                     end                                           
+                                          end
+                                          akinfo(VTW(i),t)=1-ako;
+                                          akinfv(VTW(i),t)=1-akv;
+                                          akinfw(VTW(i),t)=1-akw;
+                                          
+                                          %menghitung dinamik SII1RR1 pada waktu t                                          
+                                          pmo=randsample(vmo,1);
+                                          pmv=randsample(vmv,1); 
+                                          pmw=randsample(vmw,1);                                        
+                                          Sus(VTW(i),t)=Sus(VTW(i),t-1)*(1-(akinfo(VTW(i),t)+akinfv(VTW(i),t)+akinfw(VTW(i),t)));
+                                          Info(VTW(i),t)=Info(VTW(i),t-1)*(1-(finfo(VTW(i),t-1)-freco(VTW(i),t-1))*pmo-freco(VTW(i),t-1))+Sus(VTW(i),t-1)*akinfo(VTW(i),t);
+                                          Reco(VTW(i),t)=Reco(VTW(i),t-1)*(1-freco(VTW(i),t-1)*(akinfv(VTW(i),t)+akinfw(VTW(i),t)))+freco(VTW(i),t-1)*Info(VTW(i),t-1);
+                                          Dedo(VTW(i),t)=Dedo(VTW(i),t-1)+(finfo(VTW(i),t-1)-freco(VTW(i),t-1))*pmo*Info(VTW(i),t-1);
+                                          AInfo(VTW(i),t)=AInfo(VTW(i),t-1)+Sus(VTW(i),t-1)*akinfo(VTW(i),t);                              
+                                          Infv(VTW(i),t)=Infv(VTW(i),t-1)*(1-(finfv(VTW(i),t-1)-frecv(VTW(i),t-1))*pmv-frecv(VTW(i),t-1))+(Sus(VTW(i),t-1)+freco(VTW(i),t-1)*Reco(VTW(i),t-1))*akinfv(VTW(i),t);
+                                          Recv(VTW(i),t)=Recv(VTW(i),t-1)*(1-frecv(VTW(i),t-1)*akinfw(VTW(i),t))+frecv(VTW(i),t-1)*Infv(VTW(i),t-1);
+                                          Dedv(VTW(i),t)=Dedv(VTW(i),t-1)+(finfv(VTW(i),t-1)-frecv(VTW(i),t-1))*pmv*Infv(VTW(i),t-1);
+                                          AInfv(VTW(i),t)=AInfv(VTW(i),t-1)+(Sus(VTW(i),t-1)+Reco(VTW(i),t-1))*akinfv(VTW(i),t);
+                                          Infw(VTW(i),t)=Infw(VTW(i),t-1)*(1-(finfw(VTW(i),t-1)-frecw(VTW(i),t-1))*pmw-frecw(VTW(i),t-1))+(Sus(VTW(i),t-1)+freco(VTW(i),t-1)*Reco(VTW(i),t-1)+frecv(VTW(i),t-1)*Recv(VTW(i),t-1))*akinfw(VTW(i),t);
+                                          Recw(VTW(i),t)=Recw(VTW(i),t-1)+frecw(VTW(i),t-1)*Infw(VTW(i),t-1);
+                                          Dedw(VTW(i),t)=Dedw(VTW(i),t-1)+(finfw(VTW(i),t-1)-frecw(VTW(i),t-1))*pmw*Infw(VTW(i),t-1);
+                                          AInfw(VTW(i),t)=AInfw(VTW(i),t-1)+(Sus(VTW(i),t-1)+Reco(VTW(i),t-1)+Recv(VTW(i),t-1))*akinfw(VTW(i),t);                                           
+                                          AInft(VTW(i),t)=AInft(VTW(i),t-1)+ Sus(VTW(i),t-1)*(akinfo(VTW(i),t)+akinfv(VTW(i),t)+akinfw(VTW(i),t));
+                                          %menentukan kapan masing-masing individu terinfeksi alami pertama kali
+                                          if (Info(VTW(i),t)==1)
+                                             
+                                              iitauo(VTW(i),t)=t;                                              
+                                          else
+                                              iitauo(VTW(i),t)=LT;
+                                          end
+                                          io=iitauo(VTW(i),:);
+                                          tauo(VTW(i))=min(io(io>0));
+                                          %menentukan kapan masing-masing individu terinfeksi varian 1 pertama kali
+                                          if (Infv(VTW(i),t)==1)                                              
+                                              iitauv(VTW(i),t)=t;                                           
+                                          else
+                                              iitauv(VTW(i),t)=LT;                                             
+                                          end
+                                          iv=iitauv(VTW(i),:);
+                                          tauv(VTW(i))=min(iv(iv>0));
+                                          
+                                          %menentukan kapan masing-masing individu terinfeksi varian 2 pertama kali
+                                          if (Infw(VTW(i),t)==1)                                              
+                                              iitauw(VTW(i),t)=t;                                           
+                                          else
+                                              iitauw(VTW(i),t)=LT;                                             
+                                          end
+                                          iw=iitauw(VTW(i),:);
+                                          tauw(VTW(i))=min(iw(iw>0));
+                                          
+                                          %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                          finfo(VTW(i),t)=step(t,tauo(VTW(i))); %fungsi terinfeksi alami                                      
+                                          freco(VTW(i),t)=step(t,(tauo(VTW(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                          finfv(VTW(i),t)=step(t,tauv(VTW(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecv(VTW(i),t)=step(t,(tauv(VTW(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                          finfw(VTW(i),t)=step(t,tauw(VTW(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecw(VTW(i),t)=step(t,(tauw(VTW(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2             
+                                    end
+                                    
+                               end
+                          else
+                                  if (kts~=0)
+                                      for i=1:kts 
+                                            pmo=randsample(vmo,1);
+                                            pmv=randsample(vmv,1);
+                                            pmw=randsample(vmw,1);
+                                            Sus(TS(i),t)=Sus(TS(i),t-1);
+                                            Info(TS(i),t)=Info(TS(i),t-1)*(1-(finfo(TS(i),t-1)-freco(TS(i),t-1))*pmo-freco(TS(i),t-1));
+                                            Reco(TS(i),t)=Reco(TS(i),t-1)+freco(TS(i),t-1)*Info(TS(i),t-1);
+                                            Dedo(TS(i),t)=Dedo(TS(i),t-1)+(finfo(TS(i),t-1)-freco(TS(i),t-1))*pmo*Info(TS(i),t-1);
+                                            AInfo(TS(i),t)=AInfo(TS(i),t-1);
+                                            Infv(TS(i),t)=Infv(TS(i),t-1)*(1-(finfv(TS(i),t-1)-frecv(TS(i),t-1))*pmv-frecv(TS(i),t-1));
+                                            Recv(TS(i),t)=Recv(TS(i),t-1)+frecv(TS(i),t-1)*Infv(TS(i),t-1);
+                                            Dedv(TS(i),t)=Dedv(TS(i),t-1)+(finfv(TS(i),t-1)-frecv(TS(i),t-1))*pmv*Infv(TS(i),t-1);
+                                            AInfv(TS(i),t)=AInfv(TS(i),t-1); 
+                                            Infw(TS(i),t)=Infw(TS(i),t-1)*(1-(finfw(TS(i),t-1)-frecw(TS(i),t-1))*pmw-frecw(TS(i),t-1));
+                                            Recw(TS(i),t)=Recw(TS(i),t-1)+frecw(TS(i),t-1)*Infw(TS(i),t-1);
+                                            Dedw(TS(i),t)=Dedw(TS(i),t-1)+(finfw(TS(i),t-1)-frecw(TS(i),t-1))*pmw*Infw(TS(i),t-1);
+                                            AInfw(TS(i),t)=AInfw(TS(i),t-1);   
+                                            AInft(TS(i),t)=AInft(TS(i),t-1);                    
+                                      end
+                                  end  
+                                    
+                                    for i=1:kvt   
+                                          %menentukan akumulasi infeksi masing-masing verteks
+                                          ako=1;
+                                          akv=1;
+                                          akw=1;
+                                          ttv=find(A(VT(i),:)==1);    
+                                          [bttv,kttv]=size(ttv);
+                                          if (t<dtv)
+                                                            if (Sus(VT(i),t-1)==1)
+                                                                    for j=1:kttv                                                                                                  
+                                                                            for k=1:W(VT(i),ttv(j))                                                                                                                                           
+                                                                                pio=randsample(vbo,1);                                     
+                                                                                ako=ako*(1-pio*A(VT(i),ttv(j))*Info(ttv(j),t-1));                                                                                                        
+                                                                            end
+                                                          
+                                                                            if (ako==0)
+                                                                                    ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                                            end                                                                           
+                                                                    end                                                                           
+                                                            end
+                                          elseif (t>dtv && t<dtv+dtw)
+                                                            if (Sus(VT(i),t-1)==1)
+                                                                    for j=1:kttv                                                                                                  
+                                                                            for k=1:W(VT(i),ttv(j))                                                                                                                                                                                                           
+                                                                                pio=randsample(vbo,1);
+                                                                                piv=randsample(vbv,1);                                    
+                                                                                ako=ako*(1-pio*A(VT(i),ttv(j))*Info(ttv(j),t-1));
+                                                                                akv=akv*(1-piv*A(VT(i),ttv(j))*Infv(ttv(j),t-1));                                                                                                                        
+                                                                            end
+                                                          
+                                                                            if (ako==0)
+                                                                                    ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                                            end
+                                                          
+                                                                            if (akv==0)
+                                                                                    ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                                            end                                                             
+                                                                    end
+                                                     
+                                                                            if (ako*akv~=1)                                                                
+                                                                                     vak=[ako akv];
+                                                                                     vit=find(vak==0); 
+                                                                                     piv=randsample(vit,1);
+                                                                                     if (piv==1)
+                                                                                            ako=0;
+                                                                                            akv=1;        
+                                                                                     else 
+                                                                                            ako=1;
+                                                                                            akv=0;                                                                                                                                                                               
+                                                                                     end                                                                       
+                                                                            end
+                                                            elseif (Reco(VT(i),t-1)==1)
+                                                                        for j=1:kttv                                                                                                  
+                                                                                for k=1:W(VT(i),ttv(j))                                                                                                                                                                                                       
+                                                                                        piv=randsample(vbv,1);                                   
+                                                                                        akv=akv*(1-piv*A(VT(i),ttv(j))*Infv(ttv(j),t-1));                                                                                     
+                                                                                end
+                                                          
+                                                         
+                                                                                if (akv==0)
+                                                                                        ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                                                end
+                                                                        end                                                       
+                                                             end
+                                              
+                                          else 
+                                                        if (Sus(VT(i),t-1)==1)
+                                                                    for j=1:kttv                                                                                                  
+                                                                            for k=1:W(VT(i),ttv(j))                                                    
+                                                                                pio=randsample(vbo,1);
+                                                                                piv=randsample(vbv,1);
+                                                                                piw=randsample(vbw,1);
+                                                                                ako=ako*(1-pio*A(VT(i),ttv(j))*Info(ttv(j),t-1));
+                                                                                akv=akv*(1-piv*A(VT(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                                akw=akw*(1-piw*A(VT(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                                            end
+                                                          
+                                                                            if (ako==0)
+                                                                                    ROO(ttv(j),sim)=ROO(ttv(j),sim)+1;
+                                                                            end
+                                                          
+                                                                            if (akv==0)
+                                                                                    ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                                            end
+                                                          
+                                                                            if (akw==0)
+                                                                                    ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                                            end
+                                                                    end
+                                                     
+                                                                            if (ako*akv*akw~=1)                                                                
+                                                                                     vak=[ako akv akw];
+                                                                                     vit=find(vak==0); 
+                                                                                     piv=randsample(vit,1);
+                                                                                     if (piv==1)
+                                                                                            ako=0;
+                                                                                            akv=1;
+                                                                                            akw=1;
+                                                                                     elseif (piv==2)
+                                                                                            ako=1;
+                                                                                            akv=0;
+                                                                                            akw=1;
+                                                                                     else 
+                                                                                            ako=1;
+                                                                                            akv=1;
+                                                                                            akw=0;
+                                                                                     end                                                                       
+                                                                            end
+                                                        elseif (Reco(VT(i),t-1)==1)
+                                                                        for j=1:kttv                                                                                                  
+                                                                                for k=1:W(VT(i),ttv(j))
+                                                                                        piv=randsample(vbv,1);
+                                                                                        piw=randsample(vbw,1);
+                                                                                        akv=akv*(1-piv*A(VT(i),ttv(j))*Infv(ttv(j),t-1));
+                                                                                        akw=akw*(1-piw*A(VT(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                                                end
+                                                          
+                                                         
+                                                                                if (akv==0)
+                                                                                        ROV(ttv(j),sim)=ROV(ttv(j),sim)+1;
+                                                                                end
+                                                          
+                                                                                if (akw==0)
+                                                                                        ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                                                end
+                                                                        end  
+                                                     
+                                                                        if (akv*akw~=1)                                                                        
+                                                                                vak=[1 akv akw];
+                                                                                vit=find(vak==0); 
+                                                                                piv=randsample(vit,1);
+                                                                                if (piv==2)
+                                                                                        akv=0;
+                                                                                        akw=1;
+                                                                                else
+                                                                                        akv=1;
+                                                                                        akw=0;
+                                                                                end                                                                       
+                                                                        end
+                                          
+                                                        elseif (Recv(VT(i),t-1)==1)
+                                                                    for j=1:kttv                                                                                                  
+                                                                            for k=1:W(VT(i),ttv(j))                                 
+                                                                                    piw=randsample(vbw,1);
+                                                                                    akw=akw*(1-piw*A(VT(i),ttv(j))*Infw(ttv(j),t-1));                                                                 
+                                                                            end
+                                                                                                                   
+                                                          
+                                                                            if (akw==0)
+                                                                                    ROW(ttv(j),sim)=ROW(ttv(j),sim)+1;
+                                                                            end
+                                                                    end                                           
+                                                        end
+                                          end
+                                              
+                                          
+                                          
+                                          akinfo(VT(i),t)=1-ako;
+                                          akinfv(VT(i),t)=1-akv;
+                                          akinfw(VT(i),t)=1-akw;
+                                          
+                                          %menghitung dinamik SII1RR1 pada waktu t                                          
+                                          pmo=randsample(vmo,1);
+                                          pmv=randsample(vmv,1); 
+                                          pmw=randsample(vmw,1);                                        
+                                          Sus(VT(i),t)=Sus(VT(i),t-1)*(1-(akinfo(VT(i),t)+akinfv(VT(i),t)+akinfw(VT(i),t)));
+                                          Info(VT(i),t)=Info(VT(i),t-1)*(1-(finfo(VT(i),t-1)-freco(VT(i),t-1))*pmo-freco(VT(i),t-1))+Sus(VT(i),t-1)*akinfo(VT(i),t);
+                                          Reco(VT(i),t)=Reco(VT(i),t-1)*(1-freco(VT(i),t-1)*(akinfv(VT(i),t)+akinfw(VT(i),t)))+freco(VT(i),t-1)*Info(VT(i),t-1);
+                                          Dedo(VT(i),t)=Dedo(VT(i),t-1)+(finfo(VT(i),t-1)-freco(VT(i),t-1))*pmo*Info(VT(i),t-1);
+                                          AInfo(VT(i),t)=AInfo(VT(i),t-1)+Sus(VT(i),t-1)*akinfo(VT(i),t);                              
+                                          Infv(VT(i),t)=Infv(VT(i),t-1)*(1-(finfv(VT(i),t-1)-frecv(VT(i),t-1))*pmv-frecv(VT(i),t-1))+(Sus(VT(i),t-1)+freco(VT(i),t-1)*Reco(VT(i),t-1))*akinfv(VT(i),t);
+                                          Recv(VT(i),t)=Recv(VT(i),t-1)*(1-frecv(VT(i),t-1)*akinfw(VT(i),t))+frecv(VT(i),t-1)*Infv(VT(i),t-1);
+                                          Dedv(VT(i),t)=Dedv(VT(i),t-1)+(finfv(VT(i),t-1)-frecv(VT(i),t-1))*pmv*Infv(VT(i),t-1);
+                                          AInfv(VT(i),t)=AInfv(VT(i),t-1)+(Sus(VT(i),t-1)+Reco(VT(i),t-1))*akinfv(VT(i),t);
+                                          Infw(VT(i),t)=Infw(VT(i),t-1)*(1-(finfw(VT(i),t-1)-frecw(VT(i),t-1))*pmw-frecw(VT(i),t-1))+(Sus(VT(i),t-1)+freco(VT(i),t-1)*Reco(VT(i),t-1)+frecv(VT(i),t-1)*Recv(VT(i),t-1))*akinfw(VT(i),t);
+                                          Recw(VT(i),t)=Recw(VT(i),t-1)+frecw(VT(i),t-1)*Infw(VT(i),t-1);
+                                          Dedw(VT(i),t)=Dedw(VT(i),t-1)+(finfw(VT(i),t-1)-frecw(VT(i),t-1))*pmw*Infw(VT(i),t-1);
+                                          AInfw(VT(i),t)=AInfw(VT(i),t-1)+(Sus(VT(i),t-1)+Reco(VT(i),t-1)+Recv(VT(i),t-1))*akinfw(VT(i),t);                                           
+                                          AInft(VT(i),t)=AInft(VT(i),t-1)+ Sus(VT(i),t-1)*(akinfo(VT(i),t)+akinfv(VT(i),t)+akinfw(VT(i),t));
+                                          %menentukan kapan masing-masing individu terinfeksi alami pertama kali
+                                          if (Info(VT(i),t)==1)
+                                             
+                                              iitauo(VT(i),t)=t;                                              
+                                          else
+                                              iitauo(VT(i),t)=LT;
+                                          end
+                                          io=iitauo(VT(i),:);
+                                          tauo(VT(i))=min(io(io>0));
+                                          %menentukan kapan masing-masing individu terinfeksi varian 1 pertama kali
+                                          if (Infv(VT(i),t)==1)                                              
+                                              iitauv(VT(i),t)=t;                                           
+                                          else
+                                              iitauv(VT(i),t)=LT;                                             
+                                          end
+                                          iv=iitauv(VT(i),:);
+                                          tauv(VT(i))=min(iv(iv>0));
+                                          
+                                          %menentukan kapan masing-masing individu terinfeksi varian 2 pertama kali
+                                          if (Infw(VT(i),t)==1)                                              
+                                              iitauw(VT(i),t)=t;                                           
+                                          else
+                                              iitauw(VT(i),t)=LT;                                             
+                                          end
+                                          iw=iitauw(VT(i),:);
+                                          tauw(VT(i))=min(iw(iw>0));
+                                          
+                                          %menentukan fungsi infeksi dan recovery alami pada waktu t                       
+                                          finfo(VT(i),t)=step(t,tauo(VT(i))); %fungsi terinfeksi alami                                      
+                                          freco(VT(i),t)=step(t,(tauo(VT(i))+dpo)); %fungsi yang menentukan seseorang sembuh 
+                                          finfv(VT(i),t)=step(t,tauv(VT(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecv(VT(i),t)=step(t,(tauv(VT(i))+dpv)); %fungsi yang menentukan seseorang sembuh dari varian 1
+                                          finfw(VT(i),t)=step(t,tauw(VT(i))); %fungsi terinfeksi oleh varian                                  
+                                          frecw(VT(i),t)=step(t,(tauw(VT(i))+dpw)); %fungsi yang menentukan seseorang sembuh dari varian 2                    
+                                    end
+                          end                                            
+              %menghitung total masing-masing kompartemen
+              TSus(sim,t)=sum(Sus(:,t));
+              TInfo(sim,t)=sum(Info(:,t));
+              TReco(sim,t)=sum(Reco(:,t));
+              TDedo(sim,t)=sum(Dedo(:,t));
+              TAInfo(sim,t)=sum(AInfo(:,t));                        
+              TInfv(sim,t)=sum(Infv(:,t));
+              TRecv(sim,t)=sum(Recv(:,t));
+              TDedv(sim,t)=sum(Dedv(:,t));
+              TAInfv(sim,t)=sum(AInfv(:,t));  
+              TInfw(sim,t)=sum(Infw(:,t));
+              TRecw(sim,t)=sum(Recw(:,t));
+              TDedw(sim,t)=sum(Dedw(:,t));
+              TAInfw(sim,t)=sum(AInfw(:,t));  
+              TAInft(sim,t)=sum(AInft(:,t));             
+              end             
+ %membangun grafik simulasi 100 sampel
+            nzro=nnz(ROO(:,sim));
+            nzrv=nnz(ROV(:,sim));
+            nzrw=nnz(ROW(:,sim));
+            if (nzro~=0)
+                MRo(sim)=sum(ROO(:,sim))/nzro;
+            else 
+                MRo(sim)=sum(ROO(:,sim))/(nzro+1);
+            end
+            
+            if (nzrv~=0)
+                MRv(sim)=sum(ROV(:,sim))/nzrv;
+            else 
+                MRv(sim)=sum(ROV(:,sim))/(nzrv+1);
+            end
+            
+            if (nzrw~=0)
+                MRw(sim)=sum(ROW(:,sim))/nzrw;
+            else 
+                MRw(sim)=sum(ROW(:,sim))/(nzrw+1);
+            end          
+hold on;
+plot(xt,TSus(sim,:),'b-',xt,TInfo(sim,:),'r-',xt,TReco(sim,:),'g-',xt,TInfv(sim,:),'r--',xt,TRecv(sim,:),'g--',xt,TInfw(sim,:),'r:',xt,TRecw(sim,:),'g:');%A,BVRU,"r-", "LineWidth",2,A,BVRL,"g-", "LineWidth",2);
+end
+hold off;
+xlabel('$t$','interpreter','latex');
+ylabel('$S,I_{0}, R_{0}, I_{1}, R_{1},I_{2}, R_{2}$','interpreter','latex');
+%title('Plot of 100 samples');
+legend('$S$','$I_{0}$','$R_{0}$','$I_{1}$','$R_{1}$','$I_{2}$','$R_{2}$','interpreter','latex');
+grid on;
+%----------------------------------------------------------------
+        disp('--------------------------------------------------------------');
+        disp('Hasil yang diperoleh : ');
+        %menentukan rataan Roo, Rov, dan Row
+        Ro=mean(MRo);
+        Rv=mean(MRv);
+        Rw=mean(MRw);
+        
+        disp(['Bilangan Reproduksi Dasar virus awal = ', num2str(Ro)]);
+        disp(['Bilangan Reproduksi Dasar varian 1 = ', num2str(Rv)]);
+        disp(['Bilangan Reproduksi Dasar varian 2 = ', num2str(Rw)]);
+%----------------------------------------------------------------
+        %menentukan mean dan standar deviasi masing-masing kompartemen
+        TSusm=mean(TSus);
+        TInfom=mean(TInfo);
+        TRecom=mean(TReco);
+        TDedom=mean(TDedo);
+        TAInfom=mean(TAInfo);
+        TInfvm=mean(TInfv);
+        TRecvm=mean(TRecv);
+        TDedvm=mean(TDedv);
+        TAInfvm=mean(TAInfv);
+        TInfwm=mean(TInfw);
+        TRecwm=mean(TRecw);
+        TDedwm=mean(TDedw);
+        TAInfwm=mean(TAInfw);
+        TAInftm=mean(TAInft);
+        %--------------------------------------
+        Sqnsim=sqrt(Nsim);
+        CI95=tinv([0.025 0.975],Nsim-1);
+        
+        TSuss=std(TSus)/Sqnsim;
+        TInfos=std(TInfo)/Sqnsim;
+        TRecos=std(TReco)/Sqnsim;
+        TDedos=std(TDedo)/Sqnsim;
+        TAInfos=std(TAInfo)/Sqnsim;
+        TInfvs=std(TInfv)/Sqnsim;
+        TRecvs=std(TRecv)/Sqnsim;
+        TDedvs=std(TDedv)/Sqnsim;
+        TAInfvs=std(TAInfv)/Sqnsim;
+        TInfws=std(TInfw)/Sqnsim;
+        TRecws=std(TRecw)/Sqnsim;
+        TDedws=std(TDedw)/Sqnsim;
+        TAInfws=std(TAInfw)/Sqnsim;
+        TAInfts=std(TAInft)/Sqnsim;
+        
+        %------------------------------------------
+        
+        TSusCI95=TSusm+bsxfun(@times, TSuss, CI95(:));      
+        TInfoCI95=TInfom+bsxfun(@times, TInfos, CI95(:));       
+        TRecoCI95=TRecom+bsxfun(@times, TRecos, CI95(:));       
+        TDedoCI95=TDedom+bsxfun(@times, TDedos, CI95(:));        
+        TAInfoCI95=TAInfom+bsxfun(@times, TAInfos, CI95(:));       
+        TInfvCI95=TInfvm+bsxfun(@times, TInfvs, CI95(:));       
+        TRecvCI95=TRecvm+bsxfun(@times, TRecvs, CI95(:));        
+        TDedvCI95=TDedvm+bsxfun(@times, TDedvs, CI95(:));        
+        TAInfvCI95=TAInfvm+bsxfun(@times, TAInfvs, CI95(:));        
+        TInfwCI95=TInfwm+bsxfun(@times, TInfws, CI95(:));       
+        TRecwCI95=TRecwm+bsxfun(@times, TRecws, CI95(:));        
+        TDedwCI95=TDedwm+bsxfun(@times, TDedws, CI95(:));       
+        TAInfwCI95=TAInfwm+bsxfun(@times, TAInfws, CI95(:));        
+        TAInftCI95=TAInftm+bsxfun(@times, TAInfts, CI95(:));
+        
+        %membangun grafik rata-rata
+        figure(2);
+        %subplot(3,1,2);  
+        %plot(xt,RTSus(:),'b-',xt,RTInfo(:),'r-',xt,RTReco(:),'g-',xt,RTInfv(:),'r--',xt,RTRecv(:),'g--',xt,RTInfw(:),'r:',xt,RTRecw(:),'g:');
+        plot(xt,TSusm,'b-',xt,TInfom,'r-',xt,TRecom,'g-',xt,TInfvm,'r--',xt,TRecvm,'g--',xt,TInfwm,'r:',xt,TRecwm,'g:');
+       
+        hold on
+        patch([xt, fliplr(xt)], [TSusCI95(1,:) fliplr(TSusCI95(2,:))], 'b', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TInfoCI95(1,:) fliplr(TInfoCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TRecoCI95(1,:) fliplr(TRecoCI95(2,:))], 'g', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TInfvCI95(1,:) fliplr(TInfvCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TRecvCI95(1,:) fliplr(TRecvCI95(2,:))], 'g', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TInfwCI95(1,:) fliplr(TInfwCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TRecwCI95(1,:) fliplr(TRecwCI95(2,:))], 'g', 'EdgeColor','none', 'FaceAlpha',0.25)
+        hold off
+        xlabel('$t$','interpreter','latex');        
+        ylabel('$S,I_{0}, R_{0}, I_{1}, R_{1},I_{2}, R_{2}$','interpreter','latex');
+        %title('Average of 100 samples');
+        legend('$S$','$I_{0}$','$R_{0}$','$I_{1}$','$R_{1}$','$I_{2}$','$R_{2}$','interpreter','latex');
+        grid on;
+       
+        
+        %----------------------------------------------------------------
+        %membangun Akumulasi Infeksi
+        figure(3);
+        %subplot(3,1,3); 
+        plot(xt,TAInftm,'m-',xt,TAInfom,'r-',xt,TAInfvm,'r--',xt,TAInfwm,'r:',xt,TDedom,'k-',xt,TDedvm,'k--',xt,TDedwm,'k:');    
+        hold on
+        patch([xt, fliplr(xt)], [TAInfoCI95(1,:) fliplr(TAInfoCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TAInfvCI95(1,:) fliplr(TAInfvCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TAInfwCI95(1,:) fliplr(TAInfwCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TAInftCI95(1,:) fliplr(TAInftCI95(2,:))], 'r', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TDedoCI95(1,:) fliplr(TDedoCI95(2,:))], 'k', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TDedvCI95(1,:) fliplr(TDedvCI95(2,:))], 'k', 'EdgeColor','none', 'FaceAlpha',0.25)
+        patch([xt, fliplr(xt)], [TDedwCI95(1,:) fliplr(TDedwCI95(2,:))], 'k', 'EdgeColor','none', 'FaceAlpha',0.25)
+        hold off
+        
+        xlabel('$t$','interpreter','latex');
+        ylabel('$AI_{T}, AI_{0}, AI_{1}, AI_{2}, AD_{0},AD_{1}, AD_{2}$','interpreter','latex');
+        %title('Average of Accumulated Infected and Death');
+        legend('$AI_{T}$','$AI_{0}$','$AI_{1}$','$AI_{2}$','$AD_{0}$','$AD_{1}$','$AD_{2}$','interpreter','latex');
+        grid on;        
+        %----------------------------------------------------------------------------------------------------------
